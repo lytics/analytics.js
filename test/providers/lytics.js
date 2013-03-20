@@ -1,4 +1,3 @@
-//var sinon = require('sinon');
 
 describe('Lytics', function () {
 
