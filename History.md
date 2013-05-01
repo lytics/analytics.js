@@ -1,3 +1,92 @@
+0.9.15 / 2013-4-30
+==================
+* Added identify to UserVoice
+
+0.9.14 / 2013-4-29
+==================
+* Fixing userfox integration to accept all traits not just signup_date
+
+0.9.13 / 2013-4-29
+==================
+* Fixing ordering of ignore referrer option in Google Analytics
+
+0.9.12 / 2013-4-27
+==================
+* Adding support for [userfox](https://www.userfox.com)
+
+0.9.11 / 2013-4-26
+==================
+* Adding new ignoreReferrer option to Google Analytics provider
+* Adding new showFeedbackTab option to BugHerd provider
+* Updating UserVoice provider to work with their new snippet(s)
+* Fixing Errorception window.onerror binding to be friendlier
+
+0.9.10 / 2013-4-17
+=================
+* Adding url and title to mixpanel pageviews
+* Addiung url and title to keen pageviews
+
+0.9.9 / 2013-4-17
+=================
+* Fixed GoSquared relying on `document.body
+
+0.9.8 / 2013-4-16
+=================
+* Adding support for Pingdom RUM
+* Adding support for AdRoll
+
+0.9.7 / 2013-4-16
+=================
+* Fixing LiveChat test
+* Updating mixpanel snippet to wait for ready until script loads
+* Adding full traits pulled in from identify.
+
+0.9.6 / 2013-4-10
+=================
+* Renaming Provider.options to Provider.defaults
+* Adding universal analytics support to Google Analytics
+
+0.9.5 / 2013-4-10
+=================
+* Adding support for new Olark Javascript API functions, see #121
+
+0.9.4 / 2013-4-4
+=================
+* Fixing Uservoice integration
+* Fixing ready tests.
+* Adding lytics integration by  [@araddon](https://github.com/araddon)
+* Adding bower support by  [@jede](https://github.com/jede)
+
+0.9.3 / 2013-4-2
+=================
+* Olark provider now only notifies the operator of track and pageview when the chat box is expanded.
+
+0.9.2 / 2013-3-28
+=================
+* Qualaroo provider now prefers to identify with traits.email over a non-email userId --- makes the survey responses human readable.
+
+0.9.1 / 2013-3-28
+==================
+* Woopra no longer tracks after each identify so that duplicate page views aren't generated.
+
+0.9.0 / 2013-3-27
+==================
+* Changed default Keen IO settings to record all pageviews by default
+* Removed Keen IO API Key option since that is no longer used for data "writes" to their API
+* Renamed Keen IO projectId to projectToken to match their docs
+
+0.8.13 / 2013-3-25
+==================
+* Added ability to pass variables into `intercomSettings` via `context.intercom`
+
+0.8.12 / 2013-3-25
+==================
+* Added [Heap](https://heapanalytics.com)
+
+0.8.11 / 2013-3-24
+==================
+* Removed [Storyberg](http://storyberg.com/2013/03/18/the-end.html), best of luck guys
+
 0.8.10 / 2013-3-14
 ==================
 * Added fix for conversion of `company`'s `created` date

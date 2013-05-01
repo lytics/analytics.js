@@ -1,12 +1,5 @@
 ;(function(){
 
-
-/**
- * hasOwnProperty.
- */
-
-var has = Object.prototype.hasOwnProperty;
-
 /**
  * Require the given path.
  *
@@ -83,10 +76,10 @@ require.resolve = function(path) {
 
   for (var i = 0; i < paths.length; i++) {
     var path = paths[i];
-    if (has.call(require.modules, path)) return path;
+    if (require.modules.hasOwnProperty(path)) return path;
   }
 
-  if (has.call(require.aliases, index)) {
+  if (require.aliases.hasOwnProperty(index)) {
     return require.aliases[index];
   }
 };
@@ -140,7 +133,7 @@ require.register = function(path, definition) {
  */
 
 require.alias = function(from, to) {
-  if (!has.call(require.modules, from)) {
+  if (!require.modules.hasOwnProperty(from)) {
     throw new Error('Failed to alias "' + from + '", it does not exist');
   }
   require.aliases[to] = from;
@@ -202,7 +195,7 @@ require.relative = function(parent) {
    */
 
   localRequire.exists = function(path) {
-    return has.call(require.modules, localRequire.resolve(path));
+    return require.modules.hasOwnProperty(localRequire.resolve(path));
   };
 
   return localRequire;
@@ -1400,6 +1393,61 @@ module.exports = function newDate (date) {
   return new Date(date);
 };
 });
+require.register("segmentio-on-body/index.js", function(exports, require, module){
+var each = require('each');
+
+
+/**
+ * Cache whether `<body>` exists.
+ */
+
+var body = false;
+
+
+/**
+ * Callbacks to call when the body exists.
+ */
+
+var callbacks = [];
+
+
+/**
+ * Export a way to add handlers to be invoked once the body exists.
+ *
+ * @param {Function} callback  A function to call when the body exists.
+ */
+
+module.exports = function onBody (callback) {
+  if (body) {
+    call(callback);
+  } else {
+    callbacks.push(callback);
+  }
+};
+
+
+/**
+ * Set an interval to check for `document.body`.
+ */
+
+var interval = setInterval(function () {
+  if (!document.body) return;
+  body = true;
+  each(callbacks, call);
+  clearInterval(interval);
+}, 5);
+
+
+/**
+ * Call a callback, passing it the body.
+ *
+ * @param {Function} callback  The callback to call.
+ */
+
+function call (callback) {
+  callback(document.body);
+}
+});
 require.register("yields-prevent/index.js", function(exports, require, module){
 
 /**
@@ -1466,7 +1514,7 @@ module.exports = Analytics;
 function Analytics (Providers) {
   var self = this;
 
-  this.VERSION = '0.8.10';
+  this.VERSION = '0.9.15';
 
   each(Providers, function (Provider) {
     self.addProvider(Provider);
@@ -1639,26 +1687,27 @@ extend(Analytics.prototype, {
     // Allow for optional arguments.
     if (type(options) === 'function') {
       callback = options;
-      options = null;
+      options = undefined;
     }
     if (type(traits) === 'function') {
       callback = traits;
-      traits = null;
+      traits = undefined;
     }
     if (type(userId) === 'object') {
       if (traits && type(traits) === 'function') callback = traits;
       traits = userId;
-      userId = null;
+      userId = undefined;
     }
 
     // Use our cookied ID if they didn't provide one.
-    if (userId === null) userId = user.id();
+    if (userId === undefined || user === null) userId = user.id();
 
     // Update the cookie with the new userId and traits.
     var alias = user.update(userId, traits);
 
-    // Clone `traits` before we manipulate it, so we don't do anything uncouth.
-    traits = clone(traits);
+    // Clone `traits` before we manipulate it, so we don't do anything uncouth
+    // and take the user.traits() so anonymous users carry over traits.
+    traits = clone(user.traits());
 
     // Convert dates from more types of input into Date objects.
     if (traits && traits.created) traits.created = newDate(traits.created);
@@ -1678,7 +1727,6 @@ extend(Analytics.prototype, {
       }
     });
 
-    // TODO: auto-alias once mixpanel API doesn't error
     // If we should alias, go ahead and do it.
     // if (alias) this.alias(userId);
 
@@ -1716,11 +1764,11 @@ extend(Analytics.prototype, {
     // Allow for optional arguments.
     if (type(options) === 'function') {
       callback = options;
-      options = null;
+      options = undefined;
     }
     if (type(properties) === 'function') {
       callback = properties;
-      properties = null;
+      properties = undefined;
     }
 
     // Call `track` on all of our enabled providers that support it.
@@ -1900,6 +1948,11 @@ extend(Analytics.prototype, {
   alias : function (newId, originalId, options) {
     if (!this.initialized) return;
 
+    if (type(originalId) === 'object') {
+      options    = originalId;
+      originalId = undefined;
+    }
+
     // Call `alias` on all of our enabled providers that support it.
     each(this.providers, function (provider) {
       if (provider.alias && isEnabled(provider, options)) {
@@ -2016,7 +2069,7 @@ function Provider (options, ready) {
   }
 
   // Extend the passed-in options with our defaults.
-  extend(this.options, options);
+  this.options = extend({}, this.defaults, options);
 
   // Wrap our ready function, so that it ready from our internal queue first
   // and then marks us as ready.
@@ -2293,6 +2346,36 @@ exports.getUrlParameter = function (urlSearchParameter, paramKey) {
   }
 };
 });
+require.register("analytics/src/providers/adroll.js", function(exports, require, module){
+// https://www.adroll.com/dashboard
+
+var Provider = require('../provider')
+  , load     = require('load-script');
+
+
+module.exports = Provider.extend({
+
+  name : 'AdRoll',
+
+  defaults : {
+    // Adroll requires two options: `advId` and `pixId`.
+    advId : null,
+    pixId : null
+  },
+
+  initialize : function (options, ready) {
+    window.adroll_adv_id = options.advId;
+    window.adroll_pix_id = options.pixId;
+    window.__adroll_loaded = true;
+
+    load({
+      http  : 'http://a.adroll.com/j/roundtrip.js',
+      https : 'https://s.adroll.com/j/roundtrip.js'
+    }, ready);
+  }
+
+});
+});
 require.register("analytics/src/providers/bitdeli.js", function(exports, require, module){
 // https://bitdeli.com/docs
 // https://bitdeli.com/docs/javascript-api.html
@@ -2305,7 +2388,7 @@ module.exports = Provider.extend({
 
   name : 'Bitdeli',
 
-  options : {
+  defaults : {
     // BitDeli requires two options: `inputId` and `authToken`.
     inputId : null,
     authToken : null,
@@ -2361,11 +2444,17 @@ module.exports = Provider.extend({
 
   key : 'apiKey',
 
-  options : {
-    apiKey : null
+  defaults : {
+    apiKey : null,
+    // Optionally hide the feedback tab if you want to build your own.
+    // http://support.bugherd.com/entries/21497629-Create-your-own-Send-Feedback-tab
+    showFeedbackTab : true
   },
 
   initialize : function (options, ready) {
+    if (!options.showFeedbackTab) {
+        window.BugHerdConfig = { "feedback" : { "hide" : true } };
+    }
     load('//www.bugherd.com/sidebarv2.js?apikey=' + options.apiKey, ready);
   }
 
@@ -2384,7 +2473,7 @@ module.exports = Provider.extend({
 
   name : 'Chartbeat',
 
-  options : {
+  defaults : {
     // Chartbeat requires two options: `domain` and `uid`. All other
     // configuration options are passed straight in!
     domain : null,
@@ -2439,7 +2528,7 @@ module.exports = Provider.extend({
 
   key : 'projectId',
 
-  options : {
+  defaults : {
 
     // If you sign up for a free account, this is the default http (non-ssl) CDN URL
     // that you get. If you sign up for a premium account, you get a different
@@ -2536,7 +2625,7 @@ module.exports = Provider.extend({
 
   key : 'siteId',
 
-  options : {
+  defaults : {
     siteId : null
   },
 
@@ -2575,7 +2664,7 @@ module.exports = Provider.extend({
 
   key : 'c2',
 
-  options : {
+  defaults : {
     c1 : '2',
     c2 : null
   },
@@ -2603,7 +2692,7 @@ module.exports = Provider.extend({
 
   key : 'accountNumber',
 
-  options : {
+  defaults : {
     accountNumber : null
   },
 
@@ -2628,7 +2717,7 @@ module.exports = Provider.extend({
 
   key : 'siteId',
 
-  options : {
+  defaults : {
     siteId : null
   },
 
@@ -2691,7 +2780,8 @@ require.register("analytics/src/providers/errorception.js", function(exports, re
 
 var Provider = require('../provider')
   , extend   = require('extend')
-  , load     = require('load-script');
+  , load     = require('load-script')
+  , type     = require('type');
 
 
 module.exports = Provider.extend({
@@ -2700,7 +2790,7 @@ module.exports = Provider.extend({
 
   key : 'projectId',
 
-  options : {
+  defaults : {
     projectId : null,
     // Whether to store metadata about the user on `identify` calls, using
     // the [Errorception `meta` API](http://blog.errorception.com/2012/11/capture-custom-data-with-your-errors.html).
@@ -2712,8 +2802,13 @@ module.exports = Provider.extend({
     load('//d15qhc0lu1ghnk.cloudfront.net/beacon.js');
 
     // Attach the window `onerror` event.
+    var oldOnError = window.onerror;
     window.onerror = function () {
       window._errs.push(arguments);
+      // Chain the old onerror handler after we finish our work.
+      if ('function' === type(oldOnError)) {
+        oldOnError.apply(this, arguments);
+      }
     };
 
     // Errorception makes a queue, so it's ready immediately.
@@ -2750,7 +2845,7 @@ module.exports = Provider.extend({
 
   key : 'appId',
 
-  options : {
+  defaults : {
     appId : null
   },
 
@@ -2829,7 +2924,7 @@ module.exports = Provider.extend({
 
   key : 'siteId',
 
-  options : {
+  defaults : {
     siteId : null
   },
 
@@ -2866,7 +2961,8 @@ module.exports = Provider.extend({
 
   key : 'trackingId',
 
-  options : {
+  defaults : {
+    universalClient: false,
     // Your Google Analytics Tracking ID.
     trackingId : null,
     // Whether or not to track and initial pageview when initialized.
@@ -2882,10 +2978,21 @@ module.exports = Provider.extend({
     // https://developers.google.com/analytics/devguides/collection/gajs/methods/gaJSApiBasicConfiguration#_gat.GA_Tracker_._setSiteSpeedSampleRate
     siteSpeedSampleRate : null,
     // Whether to enable GOogle's DoubleClick remarketing feature.
-    doubleClick : false
+    doubleClick : false,
+    // A domain to ignore for referrers. Maps to _addIgnoredRef
+    ignoreReferrer : null
   },
 
+  //
+  // Initialize
+  //
+
   initialize : function (options, ready) {
+    if (options.universalClient) this.initializeUniversal(options, ready);
+    else this.initializeClassic(options, ready);
+  },
+
+  initializeClassic: function (options, ready) {
     window._gaq = window._gaq || [];
     window._gaq.push(['_setAccount', options.trackingId]);
 
@@ -2903,6 +3010,9 @@ module.exports = Provider.extend({
     }
     if (options.anonymizeIp) {
       window._gaq.push(['_gat._anonymizeIp']);
+    }
+    if (options.ignoreReferrer) {
+      window._gaq.push(['_addIgnoredRef', options.ignoreReferrer]);
     }
     if (options.initialPageview) {
       var path, canon = canonical();
@@ -2924,7 +3034,53 @@ module.exports = Provider.extend({
     ready();
   },
 
+  initializeUniversal: function (options, ready) {
+
+    // GA-universal lets you set your own queue name
+    var global = this.global = 'ga';
+
+    // and needs to know about this queue name in this special object
+    // so that future plugins can also operate on the object
+    window['GoogleAnalyticsObject'] = global;
+
+    // setup the global variable
+    window[global] = window[global] || function () {
+      (window[global].q = window[global].q || []).push(arguments);
+    };
+
+    // GA also needs to know the current time (all from their snippet)
+    window[global].l = 1 * new Date();
+
+    var createOpts = {};
+
+    // Apply a bunch of optional settings.
+    if (options.domain)
+      createOpts.cookieDomain = options.domain || 'none';
+    if (type(options.siteSpeedSampleRate) === 'number')
+      createOpts.siteSpeedSampleRate = options.siteSpeedSampleRate;
+    if (options.anonymizeIp)
+      ga('set', 'anonymizeIp', true);
+
+    ga('create', options.trackingId, createOpts);
+
+    if (options.initialPageview) {
+      var path, canon = canonical();
+      if (canon) path = url.parse(canon).pathname;
+      this.pageview(path);
+    }
+
+    load('//www.google-analytics.com/analytics.js');
+
+    // Google makes a queue so it's ready immediately.
+    ready();
+  },
+
+  //
+  // Track
+  //
+
   track : function (event, properties) {
+
     properties || (properties = {});
 
     var value;
@@ -2936,18 +3092,46 @@ module.exports = Provider.extend({
     // so if it's not there we use `'All'` as a default. We can safely push
     // undefined if the special properties don't exist. Try using revenue
     // first, but fall back to a generic `value` as well.
-    window._gaq.push([
-      '_trackEvent',
-      properties.category || 'All',
-      event,
-      properties.label,
-      Math.round(properties.revenue) || value,
-      properties.noninteraction
-    ]);
+    if (this.options.universalClient) {
+
+      var opts = {};
+      if (properties.noninteraction)
+        opts.nonInteraction = properties.noninteraction;
+
+      window[this.global](
+         'send',
+         'event',
+         properties.category || 'All',
+         event,
+         properties.label,
+         Math.round(properties.revenue) || value,
+         opts
+      );
+
+    } else {
+
+      window._gaq.push([
+        '_trackEvent',
+        properties.category || 'All',
+        event,
+        properties.label,
+        Math.round(properties.revenue) || value,
+        properties.noninteraction
+      ]);
+    }
   },
 
+
+  //
+  // Page View
+  //
+
   pageview : function (url) {
-    window._gaq.push(['_trackPageview', url]);
+    if (this.options.universalClient) {
+      window[this.global]('send', 'pageview', url);
+    } else {
+      window._gaq.push(['_trackPageview', url]);
+    }
   }
 
 });
@@ -2958,7 +3142,8 @@ require.register("analytics/src/providers/gosquared.js", function(exports, requi
 
 var Provider = require('../provider')
   , user     = require('../user')
-  , load     = require('load-script');
+  , load     = require('load-script')
+  , onBody   = require('on-body');
 
 
 module.exports = Provider.extend({
@@ -2967,23 +3152,26 @@ module.exports = Provider.extend({
 
   key : 'siteToken',
 
-  options : {
+  defaults : {
     siteToken : null
   },
 
   initialize : function (options, ready) {
-    var GoSquared = window.GoSquared = {};
-    GoSquared.acct = options.siteToken;
-    GoSquared.q = [];
-    window._gstc_lt =+ (new Date());
+    // GoSquared assumes a body in their script, so we need this wrapper.
+    onBody(function () {
+      var GoSquared = window.GoSquared = {};
+      GoSquared.acct = options.siteToken;
+      GoSquared.q = [];
+      window._gstc_lt =+ (new Date());
 
-    GoSquared.VisitorName = user.id();
-    GoSquared.Visitor = user.traits();
+      GoSquared.VisitorName = user.id();
+      GoSquared.Visitor = user.traits();
 
-    load('//d1l6p2sc9645hc.cloudfront.net/tracker.js');
+      load('//d1l6p2sc9645hc.cloudfront.net/tracker.js');
 
-    // GoSquared makes a queue, so it's ready immediately.
-    ready();
+      // GoSquared makes a queue, so it's ready immediately.
+      ready();
+    });
   },
 
   identify : function (userId, traits) {
@@ -3005,6 +3193,40 @@ module.exports = Provider.extend({
 
 });
 });
+require.register("analytics/src/providers/heap.js", function(exports, require, module){
+// https://heapanalytics.com/docs
+
+var Provider = require('../provider')
+  , load     = require('load-script');
+
+module.exports = Provider.extend({
+
+  name : 'Heap',
+
+  key : 'apiKey',
+
+  defaults : {
+    apiKey : null
+  },
+
+  initialize : function (options, ready) {
+    window.heap=window.heap||[];window.heap.load=function(a){window._heapid=a;var b=document.createElement("script");b.type="text/javascript",b.async=!0,b.src=("https:"===document.location.protocol?"https:":"http:")+"//d36lvucg9kzous.cloudfront.net";var c=document.getElementsByTagName("script")[0];c.parentNode.insertBefore(b,c);var d=function(a){return function(){heap.push([a].concat(Array.prototype.slice.call(arguments,0)))}},e=["identify","track"];for(var f=0;f<e.length;f++)heap[e[f]]=d(e[f])};
+    window.heap.load(options.apiKey);
+
+    // heap creates its own queue, so we're ready right away
+    ready();
+  },
+
+  identify : function (userId, traits) {
+    window.heap.identify(traits);
+  },
+
+  track : function (event, properties) {
+    window.heap.track(event, properties);
+  }
+
+});
+});
 require.register("analytics/src/providers/hittail.js", function(exports, require, module){
 // http://www.hittail.com
 
@@ -3018,7 +3240,7 @@ module.exports = Provider.extend({
 
   key : 'siteId',
 
-  options : {
+  defaults : {
     siteId : null
   },
 
@@ -3042,7 +3264,7 @@ module.exports = Provider.extend({
 
   key : 'portalId',
 
-  options : {
+  defaults : {
     portalId : null
   },
 
@@ -3091,6 +3313,7 @@ module.exports = Provider.extend({
 });
 require.register("analytics/src/providers/index.js", function(exports, require, module){
 module.exports = [
+  require('./adroll'),
   require('./bitdeli'),
   require('./bugherd'),
   require('./chartbeat'),
@@ -3104,6 +3327,7 @@ module.exports = [
   require('./gauges'),
   require('./google-analytics'),
   require('./gosquared'),
+  require('./heap'),
   require('./hittail'),
   require('./hubspot'),
   require('./intercom'),
@@ -3115,12 +3339,13 @@ module.exports = [
   require('./mixpanel'),
   require('./olark'),
   require('./perfect-audience'),
+  require('./pingdom'),
   require('./qualaroo'),
   require('./quantcast'),
   require('./sentry'),
   require('./snapengage'),
-  require('./storyberg'),
   require('./usercycle'),
+  require('./userfox'),
   require('./uservoice'),
   require('./vero'),
   require('./woopra')
@@ -3146,7 +3371,7 @@ module.exports = Provider.extend({
 
   key : 'appId',
 
-  options : {
+  defaults : {
     // Intercom's required key.
     appId : null,
     // An optional setting to display the Intercom inbox widget.
@@ -3159,7 +3384,7 @@ module.exports = Provider.extend({
     load('https://api.intercom.io/api/js/library.js', ready);
   },
 
-  identify : function (userId, traits) {
+  identify : function (userId, traits, context) {
     // Intercom requires a `userId` to associate data to a user.
     if (!userId) return;
 
@@ -3167,9 +3392,9 @@ module.exports = Provider.extend({
     if (!this.booted && !userId) return;
 
     // Pass traits directly in to Intercom's `custom_data`.
-    var settings = {
+    var settings = extend({
       custom_data : traits || {}
-    };
+    }, (context && context.intercom) ? context.intercom : {});
 
     // They need `created_at` as a Unix timestamp (seconds).
     if (traits && traits.created) {
@@ -3218,9 +3443,12 @@ module.exports = Provider.extend({
     } else {
       extend(settings, {
         app_id    : this.options.appId,
-        user_hash : this.options.userHash,
         user_id   : userId
       });
+
+      if (this.options.userHash)
+        settings.user_hash = this.options.userHash;
+
       window.Intercom('boot', settings);
     }
 
@@ -3242,19 +3470,18 @@ module.exports = Provider.extend({
 
   name : 'Keen IO',
 
-  options : {
-    // Keen IO has two required options: `projectId` and `apiKey`.
-    projectId : null,
-    apiKey : null,
+  defaults : {
+    // Keen IO has one required option: `projectToken`
+    projectToken : null,
     // Whether or not to pass pageviews on to Keen IO.
-    pageview : false,
+    pageview : true,
     // Whether or not to track an initial pageview on `initialize`.
-    initialPageview : false
+    initialPageview : true
   },
 
   initialize : function (options, ready) {
     window.Keen = window.Keen||{configure:function(a,b,c){this._pId=a;this._ak=b;this._op=c},addEvent:function(a,b,c,d){this._eq=this._eq||[];this._eq.push([a,b,c,d])},setGlobalProperties:function(a){this._gp=a},onChartsReady:function(a){this._ocrq=this._ocrq||[];this._ocrq.push(a)}};
-    window.Keen.configure(options.projectId, options.apiKey);
+    window.Keen.configure(options.projectToken);
 
     load('//dc8na2hxrj29i.cloudfront.net/code/keen-2.0.0-min.js');
 
@@ -3285,8 +3512,10 @@ module.exports = Provider.extend({
   pageview : function (url) {
     if (!this.options.pageview) return;
 
-    var properties;
-    if (url) properties = { url : url };
+    var properties = {
+      url  : url || document.location.href,
+      name : document.title
+    };
 
     this.track('Loaded a Page', properties);
   }
@@ -3307,7 +3536,7 @@ module.exports = Provider.extend({
 
   key : 'apiKey',
 
-  options : {
+  defaults : {
     apiKey : null
   },
 
@@ -3360,7 +3589,7 @@ module.exports = Provider.extend({
 
   key : 'apiKey',
 
-  options : {
+  defaults : {
     apiKey : null
   },
 
@@ -3403,7 +3632,7 @@ module.exports = Provider.extend({
 
   key : 'license',
 
-  options : {
+  defaults : {
     license : null
   },
 
@@ -3450,11 +3679,11 @@ var Provider = require('../provider')
 
 module.exports = Provider.extend({
 
-    name : 'Lytics', 
-    
+    name : 'Lytics',
+
     key : 'cid',
 
-    options : {
+    defaults : {
         cid: null
     },
 
@@ -3465,14 +3694,14 @@ module.exports = Provider.extend({
           t.send=function(){
             this._q.push(["ready","send",Array.prototype.slice.call(arguments)]);
             return this;
-          }
-          return t
+          };
+          return t;
         })();
 
         load('//c.lytics.io/static/io.min.js');
 
-        // ready immediately 
-        ready()
+        // ready immediately
+        ready();
     },
 
 
@@ -3513,7 +3742,8 @@ require.register("analytics/src/providers/mixpanel.js", function(exports, requir
 
 var Provider = require('../provider')
   , alias    = require('alias')
-  , isEmail  = require('is-email');
+  , isEmail  = require('is-email')
+  , load     = require('load-script');
 
 
 module.exports = Provider.extend({
@@ -3522,7 +3752,7 @@ module.exports = Provider.extend({
 
   key : 'token',
 
-  options : {
+  defaults : {
     // Whether to call `mixpanel.nameTag` on `identify`.
     nameTag : true,
     // Whether to use Mixpanel's People API.
@@ -3537,40 +3767,34 @@ module.exports = Provider.extend({
 
   initialize : function (options, ready) {
     (function (c, a) {
-      window.mixpanel = a;
-      var b, d, h, e;
-      b = c.createElement('script');
-      b.type = 'text/javascript';
-      b.async = true;
-      b.src = ('https:' === c.location.protocol ? 'https:' : 'http:') + '//cdn.mxpnl.com/libs/mixpanel-2.2.min.js';
-      d = c.getElementsByTagName('script')[0];
-      d.parentNode.insertBefore(b, d);
-      a._i = [];
-      a.init = function (b, c, f) {
-        function d(a, b) {
-          var c = b.split('.');
-          2 == c.length && (a = a[c[0]], b = c[1]);
-          a[b] = function () {
-              a.push([b].concat(Array.prototype.slice.call(arguments, 0)));
-          };
-        }
-        var g = a;
-        'undefined' !== typeof f ? g = a[f] = [] : f = 'mixpanel';
-        g.people = g.people || [];
-        h = ['disable', 'track', 'track_pageview', 'track_links', 'track_forms', 'register', 'register_once', 'unregister', 'identify', 'alias', 'name_tag', 'set_config', 'people.set', 'people.increment', 'people.track_charge', 'people.append'];
-        for (e = 0; e < h.length; e++) d(g, h[e]);
-        a._i.push([b, c, f]);
-      };
-      a.__SV = 1.2;
-    })(document, window.mixpanel || []);
+        window.mixpanel = a;
+        var b, d, h, e;
+        a._i = [];
+        a.init = function (b, c, f) {
+          function d(a, b) {
+            var c = b.split('.');
+            2 == c.length && (a = a[c[0]], b = c[1]);
+            a[b] = function () {
+                a.push([b].concat(Array.prototype.slice.call(arguments, 0)));
+            };
+          }
+          var g = a;
+          'undefined' !== typeof f ? g = a[f] = [] : f = 'mixpanel';
+          g.people = g.people || [];
+          h = ['disable', 'track', 'track_pageview', 'track_links', 'track_forms', 'register', 'register_once', 'unregister', 'identify', 'alias', 'name_tag', 'set_config', 'people.set', 'people.increment', 'people.track_charge', 'people.append'];
+          for (e = 0; e < h.length; e++) d(g, h[e]);
+          a._i.push([b, c, f]);
+        };
+        a.__SV = 1.2;
+        // Modification to the snippet: call ready whenever the library has
+        // fully loaded.
+        load('//cdn.mxpnl.com/libs/mixpanel-2.2.min.js', ready);
+      })(document, window.mixpanel || []);
 
-    // Pass options directly to `init` as the second argument.
-    window.mixpanel.init(options.token, options);
+      // Pass options directly to `init` as the second argument.
+      window.mixpanel.init(options.token, options);
 
-    if (options.initialPageview) this.pageview();
-
-    // Mixpanel creates all its methods, so it's ready immediately.
-    ready();
+      if (options.initialPageview) this.pageview();
   },
 
   identify : function (userId, traits) {
@@ -3623,8 +3847,11 @@ module.exports = Provider.extend({
     // If they don't want pageviews tracked, leave now.
     if (!this.options.pageview) return;
 
-    var properties;
-    if (url) properties = { url : url };
+    var properties = {
+      url  : url || document.location.href,
+      name : document.title
+    };
+
     this.track('Loaded a Page', properties);
   },
 
@@ -3637,7 +3864,7 @@ module.exports = Provider.extend({
 
     // HACK: internal mixpanel API to ensure we don't overwrite.
     if(window.mixpanel.get_property &&
-       window.mixpanel.get_property('$people_distinct_id')) return;
+       window.mixpanel.get_property('$people_distinct_id') === newId) return;
 
     window.mixpanel.alias(newId, originalId);
   }
@@ -3647,7 +3874,8 @@ module.exports = Provider.extend({
 require.register("analytics/src/providers/olark.js", function(exports, require, module){
 // http://www.olark.com/documentation
 
-var Provider = require('../provider');
+var Provider = require('../provider')
+  , isEmail  = require('is-email');
 
 
 module.exports = Provider.extend({
@@ -3656,7 +3884,9 @@ module.exports = Provider.extend({
 
   key : 'siteId',
 
-  options : {
+  chatInProgress : false,
+
+  defaults : {
     siteId : null,
     // Whether to use the user's name or email in the Olark chat console.
     identify : true,
@@ -3670,6 +3900,17 @@ module.exports = Provider.extend({
     window.olark||(function(c){var f=window,d=document,l=f.location.protocol=="https:"?"https:":"http:",z=c.name,r="load";var nt=function(){f[z]=function(){(a.s=a.s||[]).push(arguments)};var a=f[z]._={},q=c.methods.length;while(q--){(function(n){f[z][n]=function(){f[z]("call",n,arguments)}})(c.methods[q])}a.l=c.loader;a.i=nt;a.p={0:+new Date};a.P=function(u){a.p[u]=new Date-a.p[0]};function s(){a.P(r);f[z](r)}f.addEventListener?f.addEventListener(r,s,false):f.attachEvent("on"+r,s);var ld=function(){function p(hd){hd="head";return["<",hd,"></",hd,"><",i,' onl' + 'oad="var d=',g,";d.getElementsByTagName('head')[0].",j,"(d.",h,"('script')).",k,"='",l,"//",a.l,"'",'"',"></",i,">"].join("")}var i="body",m=d[i];if(!m){return setTimeout(ld,100)}a.P(1);var j="appendChild",h="createElement",k="src",n=d[h]("div"),v=n[j](d[h](z)),b=d[h]("iframe"),g="document",e="domain",o;n.style.display="none";m.insertBefore(n,m.firstChild).id=z;b.frameBorder="0";b.id=z+"-loader";if(/MSIE[ ]+6/.test(navigator.userAgent)){b.src="javascript:false"}b.allowTransparency="true";v[j](b);try{b.contentWindow[g].open()}catch(w){c[e]=d[e];o="javascript:var d="+g+".open();d.domain='"+d.domain+"';";b[k]=o+"void(0);"}try{var t=b.contentWindow[g];t.write(p());t.close()}catch(x){b[k]=o+'d.write("'+p().replace(/"/g,String.fromCharCode(92)+'"')+'");d.close();'}a.P(2)};ld()};nt()})({loader: "static.olark.com/jsclient/loader0.js",name:"olark",methods:["configure","extend","declare","identify"]});
     window.olark.identify(options.siteId);
 
+    // Set up event handlers for chat box open and close so that
+    // we know whether a conversation is active. If it is active,
+    // then we'll send track and pageview information.
+    var self = this;
+    window.olark('api.box.onExpand', function () {
+      self.chatInProgress = true;
+    });
+    window.olark('api.box.onShrink', function () {
+      self.chatInProgress = false;
+    });
+
     // Olark creates all of it's method in the snippet, so it's ready
     // immediately.
     ready();
@@ -3680,24 +3921,47 @@ module.exports = Provider.extend({
   identify : function (userId, traits) {
     if (!this.options.identify) return;
 
-    // Choose the best name for the user that we can get.
-    var name = userId;
-    if (traits && traits.email) name = traits.email;
-    if (traits && traits.name) name = traits.name;
-    if (traits && traits.name && traits.email) name += ' ('+traits.email+')';
+    // Make an empty default traits object if it doesn't exist yet.
+    traits || (traits = {});
 
-    // If we ended up with no name after all that, get out of there.
-    if (!name) return;
+    // If there wasn't already an email and the userId is one, use it.
+    if (!traits.email && isEmail(userId)) traits.email = userId;
+
+    // Set the email address for the user.
+    if (traits.email)
+      window.olark('api.visitor.updateEmailAddress', { emailAddress : traits.email });
+
+    // Set the full name for the user.
+    if (traits.name)
+      window.olark('api.visitor.updateFullName', { fullName : traits.name });
+    else if (traits.firstName && traits.lastName)
+      window.olark('api.visitor.updateFullName', { fullName : traits.firstName + ' ' + traits.lastName });
+
+    // Set the phone number for the user.
+    if (traits.phone)
+      window.olark('api.visitor.updatePhoneNumber', { phoneNumber : traits.phone });
+
+    // Set any additional custom fields from the traits.
+    window.olark('api.visitor.updateCustomFields', traits);
+
+    // Choose the best possible nickname for the user.
+    var nickname = userId;
+    if (traits.email) nickname = traits.email;
+    if (traits.name) nickname = traits.name;
+    if (traits.name && traits.email) nickname += ' ('+traits.email+')';
+
+    // If we ended up with no nickname after all that, get out of here.
+    if (!nickname) return;
 
     window.olark('api.chat.updateVisitorNickname', {
-      snippet : name
+      snippet : nickname
     });
   },
 
   // Again, all we're doing is logging events the user triggers to the chat
   // console, if you so desire it.
   track : function (event, properties) {
-    if (!this.options.track) return;
+    if (!this.options.track || !this.chatInProgress) return;
 
     // To stay consistent with olark's default messages, it's all lowercase.
     window.olark('api.chat.sendNotificationToOperator', {
@@ -3709,7 +3973,7 @@ module.exports = Provider.extend({
   // normal pageviews with pseudo-pageviews, telling the operator when a
   // visitor changes pages.
   pageview : function (url) {
-    if (!this.options.pageview) return;
+    if (!this.options.pageview || !this.chatInProgress) return;
 
     // To stay consistent with olark's default messages, it's all lowercase.
     window.olark('api.chat.sendNotificationToOperator', {
@@ -3732,7 +3996,7 @@ module.exports = Provider.extend({
 
   key : 'siteId',
 
-  options : {
+  defaults : {
     siteId : null
   },
 
@@ -3747,11 +4011,39 @@ module.exports = Provider.extend({
 
 });
 });
+require.register("analytics/src/providers/pingdom.js", function(exports, require, module){
+var date     = require('load-date')
+  , Provider = require('../provider')
+  , load     = require('load-script');
+
+
+module.exports = Provider.extend({
+
+  name : 'Pingdom',
+
+  key : 'id',
+
+  defaults : {
+    id : null
+  },
+
+  initialize : function (options, ready) {
+
+    window._prum = [['id', '5168f8c6abe53db732000000'],
+                 ['mark', 'firstbyte', date.getTime()]];
+
+    // We've replaced the original snippet loader with our own load method.
+    load('//rum-static.pingdom.net/prum.min.js', ready);
+  }
+
+});
+});
 require.register("analytics/src/providers/qualaroo.js", function(exports, require, module){
 // http://help.qualaroo.com/customer/portal/articles/731085-identify-survey-nudge-takers
 // http://help.qualaroo.com/customer/portal/articles/731091-set-additional-user-properties
 
 var Provider = require('../provider')
+  , isEmail  = require('is-email')
   , load     = require('load-script');
 
 
@@ -3759,7 +4051,7 @@ module.exports = Provider.extend({
 
   name : 'Qualaroo',
 
-  options : {
+  defaults : {
     // Qualaroo has two required options.
     customerId : null,
     siteToken : null,
@@ -3780,7 +4072,9 @@ module.exports = Provider.extend({
   // Qualaroo uses two separate methods: `identify` for storing the `userId`,
   // and `set` for storing `traits`.
   identify : function (userId, traits) {
-    if (userId) window._kiq.push(['identify', userId]);
+    var identity = userId;
+    if (traits && traits.email && !isEmail(userId)) identity = traits.email;
+    if (identity) window._kiq.push(['identify', identity]);
     if (traits) window._kiq.push(['set', traits]);
   },
 
@@ -3814,7 +4108,7 @@ module.exports = Provider.extend({
 
   key : 'pCode',
 
-  options : {
+  defaults : {
     pCode : null
   },
 
@@ -3842,7 +4136,7 @@ module.exports = Provider.extend({
 
   key : 'config',
 
-  options : {
+  defaults : {
     config : null
   },
 
@@ -3881,7 +4175,7 @@ module.exports = Provider.extend({
 
   key : 'apiKey',
 
-  options : {
+  defaults : {
     apiKey : null
   },
 
@@ -3890,63 +4184,6 @@ module.exports = Provider.extend({
   }
 
 });
-});
-require.register("analytics/src/providers/storyberg.js", function(exports, require, module){
-// https://github.com/Storyberg/Docs/wiki/Javascript-Library
-
-var Provider = require('../provider')
-  , isEmail  = require('is-email')
-  , load     = require('load-script');
-
-
-module.exports = Provider.extend({
-
-  name : 'Storyberg',
-
-  key : 'apiKey',
-
-  options : {
-    apiKey : null
-  },
-
-  initialize : function (options, ready) {
-    window._sbq = window._sbq || [];
-    window._sbk = options.apiKey;
-    load('//storyberg.com/analytics.js');
-
-    // Storyberg creates a queue, so it's ready immediately.
-    ready();
-  },
-
-  identify : function (userId, traits) {
-    // Don't do anything if we just have traits, because Storyberg
-    // requires a `userId`.
-    if (!userId) return;
-
-    traits || (traits = {});
-
-    // Storyberg takes the `userId` as part of the traits object
-    traits.user_id = userId;
-
-    // If there wasn't already an email and the userId is one, use it.
-    if (!traits.email && isEmail(userId)) traits.email = userId;
-
-    window._sbq.push(['identify', traits]);
-  },
-
-  track : function (event, properties) {
-    properties || (properties = {});
-
-    // Storyberg uses the event for the name, to avoid losing data
-    if (properties.name) properties._name = properties.name;
-    // Storyberg takes the `userId` as part of the properties object
-    properties.name = event;
-
-    window._sbq.push(['event', properties]);
-  }
-
-});
-
 });
 require.register("analytics/src/providers/usercycle.js", function(exports, require, module){
 // http://docs.usercycle.com/javascript_api
@@ -3962,7 +4199,7 @@ module.exports = Provider.extend({
 
   key : 'key',
 
-  options : {
+  defaults : {
     key : null
   },
 
@@ -3987,26 +4224,124 @@ module.exports = Provider.extend({
 
 });
 });
-require.register("analytics/src/providers/uservoice.js", function(exports, require, module){
-// http://feedback.uservoice.com/knowledgebase/articles/16797-how-do-i-customize-and-install-the-uservoice-feedb
+require.register("analytics/src/providers/userfox.js", function(exports, require, module){
+// https://www.userfox.com/docs/
 
 var Provider = require('../provider')
-  , load     = require('load-script');
+  , extend   = require('extend')
+  , load     = require('load-script')
+  , isEmail  = require('is-email');
+
+
+module.exports = Provider.extend({
+
+  name : 'userfox',
+
+  key : 'clientId',
+
+  defaults : {
+    // userfox's required key.
+    clientId : null
+  },
+
+  initialize : function (options, ready) {
+    window._ufq = window._ufq || [];
+    load('//d2y71mjhnajxcg.cloudfront.net/js/userfox-stable.js');
+
+    // userfox creates its own queue, so we're ready right away
+    ready();
+  },
+
+  identify : function (userId, traits, context) {
+    // userfox requires an email.
+    var email;
+    if (userId && isEmail(userId)) email = userId;
+    if (traits && isEmail(traits.email)) email = traits.email;
+    if (!email) return;
+
+    // Initialize the library with the email now that we have it.
+    window._ufq.push(['init', {
+      clientId : this.options.clientId,
+      email    : email
+    }]);
+
+    // Record traits to "track" if we have the required signup date "created".
+    if (traits && traits.created) {
+      traits.signup_date = traits.created.getTime()+'';
+      window._ufq.push(['track', traits]);
+    }
+  }
+
+});
+
+});
+require.register("analytics/src/providers/uservoice.js", function(exports, require, module){
+// http://feedback.uservoice.com/knowledgebase/articles/225-how-do-i-pass-custom-data-through-the-widget-and-i
+
+var Provider = require('../provider')
+  , load     = require('load-script')
+  , alias    = require('alias')
+  , clone    = require('clone');
 
 
 module.exports = Provider.extend({
 
   name : 'UserVoice',
 
-  key : 'widgetId',
-
-  options : {
-    widgetId : null
+  defaults : {
+    // These first two options are required.
+    widgetId          : null,
+    forumId           : null,
+    // Should we show the tab automatically?
+    showTab           : true,
+    // There's tons of options for the tab.
+    mode              : 'full',
+    primaryColor      : '#cc6d00',
+    linkColor         : '#007dbf',
+    defaultMode       : 'support',
+    supportTabName    : null,
+    feedbackTabName   : null,
+    tabLabel          : 'Feedback & Support',
+    tabColor          : '#cc6d00',
+    tabPosition       : 'middle-right',
+    tabInverted       : false
   },
 
   initialize : function (options, ready) {
-    window.uvOptions = {};
+    window.UserVoice = window.UserVoice || [];
     load('//widget.uservoice.com/' + options.widgetId + '.js', ready);
+
+    var optionsClone = clone(options);
+    alias(optionsClone, {
+      'forumId'         : 'forum_id',
+      'primaryColor'    : 'primary_color',
+      'linkColor'       : 'link_color',
+      'defaultMode'     : 'default_mode',
+      'supportTabName'  : 'support_tab_name',
+      'feedbackTabName' : 'feedback_tab_name',
+      'tabLabel'        : 'tab_label',
+      'tabColor'        : 'tab_color',
+      'tabPosition'     : 'tab_position',
+      'tabInverted'     : 'tab_inverted'
+    });
+
+    // If we don't automatically show the tab, let them show it via
+    // javascript. This is the default name for the function in their snippet.
+    window.showClassicWidget = function (showWhat) {
+      window.UserVoice.push([showWhat || 'showLightbox', 'classic_widget', optionsClone]);
+    };
+
+    // If we *do* automatically show the tab, get on with it!
+    if (options.showTab) {
+      window.showClassicWidget('showTab');
+    }
+  },
+
+  identify : function (userId, traits) {
+    // Pull the ID into traits.
+    traits.id = userId;
+
+    window.UserVoice.push(['setCustomFields', traits]);
   }
 
 });
@@ -4025,7 +4360,7 @@ module.exports = Provider.extend({
 
   key : 'apiKey',
 
-  options : {
+  defaults : {
     apiKey : null
   },
 
@@ -4081,7 +4416,7 @@ module.exports = Provider.extend({
 
   key : 'domain',
 
-  options : {
+  defaults : {
     domain : null
   },
 
@@ -4112,7 +4447,6 @@ module.exports = Provider.extend({
     if (!window.woopraTracker) return;
 
     this.addTraits(userId, traits, window.woopraTracker);
-    window.woopraTracker.track();
   },
 
   // Convenience function for updating the userId and traits.
@@ -4188,6 +4522,10 @@ require.alias("component-type/index.js", "segmentio-load-script/deps/type/index.
 require.alias("segmentio-new-date/index.js", "analytics/deps/new-date/index.js");
 require.alias("component-type/index.js", "segmentio-new-date/deps/type/index.js");
 
+require.alias("segmentio-on-body/index.js", "analytics/deps/on-body/index.js");
+require.alias("component-each/index.js", "segmentio-on-body/deps/each/index.js");
+require.alias("component-type/index.js", "component-each/deps/type/index.js");
+
 require.alias("yields-prevent/index.js", "analytics/deps/prevent/index.js");
 
 require.alias("analytics/src/index.js", "analytics/index.js");
@@ -4197,5 +4535,5 @@ if (typeof exports == "object") {
 } else if (typeof define == "function" && define.amd) {
   define(function(){ return require("analytics"); });
 } else {
-  window["analytics"] = require("analytics");
+  this["analytics"] = require("analytics");
 }})();

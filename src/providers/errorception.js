@@ -2,7 +2,8 @@
 
 var Provider = require('../provider')
   , extend   = require('extend')
-  , load     = require('load-script');
+  , load     = require('load-script')
+  , type     = require('type');
 
 
 module.exports = Provider.extend({
@@ -11,7 +12,7 @@ module.exports = Provider.extend({
 
   key : 'projectId',
 
-  options : {
+  defaults : {
     projectId : null,
     // Whether to store metadata about the user on `identify` calls, using
     // the [Errorception `meta` API](http://blog.errorception.com/2012/11/capture-custom-data-with-your-errors.html).
@@ -23,8 +24,13 @@ module.exports = Provider.extend({
     load('//d15qhc0lu1ghnk.cloudfront.net/beacon.js');
 
     // Attach the window `onerror` event.
+    var oldOnError = window.onerror;
     window.onerror = function () {
       window._errs.push(arguments);
+      // Chain the old onerror handler after we finish our work.
+      if ('function' === type(oldOnError)) {
+        oldOnError.apply(this, arguments);
+      }
     };
 
     // Errorception makes a queue, so it's ready immediately.

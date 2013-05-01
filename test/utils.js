@@ -40,12 +40,17 @@ window.test = {
   // Providers
   // ---------
 
+  'AdRoll' : {
+    advId : 'LYFRCUIPPZCCTOBGRH7G32',
+    pixId : 'V7TLXL5WWBA5NOU5MOJQW4'
+  },
+
   'Bitdeli' : {
     inputId   : 'x',
     authToken : 'y'
   },
 
-  'BugHerd' : 'xssravhxw2jxlxlhxsi7iq',
+  'BugHerd' : '7917d741-16cc-4c2b-bb1a-bdd903d53d72',
 
   'Chartbeat' : {
     uid    : 'x',
@@ -75,10 +80,18 @@ window.test = {
   'Gauges' : 'x',
 
   'Google Analytics' : {
-    trackingId : 'x'
+    classic: {
+      trackingId : 'x'
+    },
+    universal: {
+      universalClient: true,
+      trackingId : 'x'
+    }
   },
 
   'GoSquared' : 'x',
+
+  'Heap' : 'x',
 
   'HitTail' : 'x',
 
@@ -91,15 +104,14 @@ window.test = {
   },
 
   'Keen IO' : {
-    projectId : 'KEEN_PROJECT_ID',
-    apiKey    : 'KEEN_API_KEY'
+    projectToken : 'KEEN_PROJECT_TOKEN'
   },
 
   'KISSmetrics' : '67f57ae9d61a6981fa07d141bec8c6c37e8b88c7',
 
   'Klaviyo' : 'x',
 
-  'LiveChat' : '2328351',
+  'LiveChat' : '1520', //'2328351',
 
   'Lytics' : 'x',
 
@@ -108,6 +120,8 @@ window.test = {
   'Olark' : '5798-949-10-1692',
 
   'Perfect Audience' : '4ff6ade4361ed500020000a5',
+
+  'Pingdom' : '5168f8c6abe53db732000000',
 
   'Quantcast' : 'x',
 
@@ -120,11 +134,15 @@ window.test = {
 
   'SnapEngage' : '782b737e-487f-4117-8a2b-2beb32b600e5',
 
-  'Storyberg' : 'x',
-
   'USERcycle' : 'x',
 
-  'UserVoice' : 'qTSuuylq5nZrsjC0L8bmg',
+  'UserVoice' : {
+    widgetId : 'qTSuuylq5nZrsjC0L8bmg',
+    forumId  : 193715,
+    tab_label : 'Operations'
+  },
+
+  'userfox' : '4v2erxr9c5vzqsy35z9gnk6az',
 
   'Vero' : 'x',
 
