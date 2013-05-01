@@ -29,6 +29,8 @@ module.exports = Provider.extend({
 
         load('//c.lytics.io/static/io.min.js');
 
+        if (options.initialPageview) this.pageview();
+        
         // ready immediately
         ready();
     },
